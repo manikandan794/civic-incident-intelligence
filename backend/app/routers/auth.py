@@ -41,11 +41,12 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(user_in: UserLogin, db: Session = Depends(get_db)):
-    search_ident = (user_in.email or user_in.email_or_username or "").strip().lower()
+    search_ident = (user_in.username or user_in.email or user_in.email_or_username or "").strip().lower()
     user = db.query(User).filter(
         or_(
             User.email.ilike(search_ident),
-            User.email.ilike(f"{search_ident}@worker.urbangrid.gov.in")
+            User.email.ilike(f"{search_ident}@worker.urbangrid.gov.in"),
+            User.email.ilike(f"{search_ident}@urbangrid.gov.in")
         )
     ).first()
     if not user:

@@ -6,8 +6,14 @@ from sqlalchemy import desc
 
 from ..core.database import get_db
 from ..core.security import require_officer_or_admin, require_worker, get_current_user, get_password_hash
-from ..models.models import Worker, User, Complaint, WorkAssignment, ComplaintTimeline, ComplaintStatus, UserRole
-from ..schemas.schemas import WorkerCreate, WorkerUpdate, WorkerOut, WorkerActionRequest, ComplaintOut
+from ..models.models import (
+    Worker, User, Complaint, WorkAssignment, ComplaintTimeline,
+    ComplaintStatus, UserRole, CitizenEvidenceReport
+)
+from ..schemas.schemas import (
+    WorkerCreate, WorkerUpdate, WorkerOut, WorkerActionRequest,
+    ComplaintOut, WorkerLocationUpdate, CitizenEvidenceReportOut
+)
 from ..services.notification_service import create_notification
 
 router = APIRouter(prefix="/api/workers", tags=["Workers"])
@@ -45,7 +51,6 @@ def create_worker(
     db.add(user)
     db.commit()
     db.refresh(user)
-    
     worker = Worker(
         user_id=user.id,
         name=worker_in.name,
@@ -54,6 +59,9 @@ def create_worker(
         ward_number=worker_in.ward_number,
         role=worker_in.role or "Field Specialist",
         specialization=worker_in.specialization or "Roads & Civil Works",
+        team_name=worker_in.team_name or "Rapid Remediation Crew 1",
+        team_size=worker_in.team_size or 3,
+        is_team_leader=worker_in.is_team_leader if worker_in.is_team_leader is not None else True,
         availability="AVAILABLE",
         status="ACTIVE"
     )
@@ -79,6 +87,59 @@ def update_worker(
     db.commit()
     db.refresh(worker)
     return worker
+
+@router.delete("/{id}")
+def delete_worker(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_officer_or_admin)
+):
+    """Officer disables or removes a worker account"""
+    worker = db.query(Worker).filter(Worker.id == id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+    worker.status = "DISABLED"
+    worker.availability = "UNAVAILABLE"
+    if worker.user:
+        worker.user.is_active = False
+    db.commit()
+    return {"status": "SUCCESS", "message": f"Worker {worker.name} successfully disabled"}
+
+@router.post("/location")
+def update_worker_location(
+    req: WorkerLocationUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_worker)
+):
+    """Periodically beacon worker GPS coordinates to backend (Requirement 17)"""
+    worker = db.query(Worker).filter(Worker.user_id == current_user.id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker profile not found")
+    worker.current_latitude = req.latitude
+    worker.current_longitude = req.longitude
+    worker.last_location_update = datetime.now(timezone.utc)
+    worker.is_online = True
+    db.commit()
+    return {"status": "SUCCESS", "recorded_at": worker.last_location_update}
+
+@router.get("/portal/verifications", response_model=List[CitizenEvidenceReportOut])
+def get_worker_verifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_worker)
+):
+    """Returns evidence reports forwarded to this field worker for on-site verification"""
+    worker = db.query(Worker).filter(Worker.user_id == current_user.id).first()
+    if not worker:
+        return []
+    items = db.query(CitizenEvidenceReport).filter(
+        CitizenEvidenceReport.assigned_worker_id == worker.id
+    ).order_by(desc(CitizenEvidenceReport.updated_at)).all()
+    results = []
+    for r in items:
+        out = CitizenEvidenceReportOut.model_validate(r)
+        out.attachment_count = len(r.attachments)
+        results.append(out)
+    return results
 
 @router.get("/portal/my-tasks", response_model=List[ComplaintOut])
 @router.get("/tasks", response_model=List[ComplaintOut])

@@ -2,10 +2,13 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages
+import PortalSelect from './pages/PortalSelect';
 import CitizenLanding from './pages/CitizenLanding';
 import ReportFlow from './pages/ReportFlow';
+import CitizenEvidenceForm from './pages/CitizenEvidenceForm';
 import MyReports from './pages/MyReports';
 import TicketDetail from './pages/TicketDetail';
 import Notifications from './pages/Notifications';
@@ -14,6 +17,7 @@ import Login from './pages/Login';
 import OfficerDashboard from './pages/OfficerDashboard';
 import OfficerComplaints from './pages/OfficerComplaints';
 import OfficerComplaintDetail from './pages/OfficerComplaintDetail';
+import OfficerReports from './pages/OfficerReports';
 import OfficerWorkers from './pages/OfficerWorkers';
 import OfficerSettings from './pages/OfficerSettings';
 import OfficerTelemetry from './pages/OfficerTelemetry';
@@ -27,34 +31,49 @@ export default function App() {
         <div className="min-h-screen bg-[#070D18] flex flex-col font-sans selection:bg-sky-500 selection:text-white">
           <Navbar />
           <main className="flex-1">
-            <Routes>
-              {/* Citizen Routes */}
-              <Route path="/" element={<CitizenLanding />} />
-              <Route path="/citizen" element={<CitizenLanding />} />
-              <Route path="/citizen/report" element={<ReportFlow />} />
-              <Route path="/citizen/my-reports" element={<MyReports />} />
-              <Route path="/citizen/ticket/:id" element={<TicketDetail />} />
-              <Route path="/citizen/notifications" element={<Notifications />} />
-              <Route path="/citizen/login" element={<Login />} />
+            <ErrorBoundary>
+              <Routes>
+                {/* Root / First Screen: Dedicated Role Portal Selection (Section 2) */}
+                <Route path="/" element={<PortalSelect />} />
 
-              {/* Officer / Admin Routes */}
-              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="/admin/login" element={<Login />} />
-              <Route path="/admin/dashboard" element={<OfficerDashboard />} />
-              <Route path="/admin/complaints" element={<OfficerComplaints />} />
-              <Route path="/admin/complaint/:id" element={<OfficerComplaintDetail />} />
-              <Route path="/admin/workers" element={<OfficerWorkers />} />
-              <Route path="/admin/settings" element={<OfficerSettings />} />
-              <Route path="/admin/telemetry" element={<OfficerTelemetry />} />
+                {/* Citizen Routes */}
+                <Route path="/citizen" element={<CitizenLanding />} />
+                <Route path="/citizen/report" element={<ReportFlow />} />
+                <Route path="/citizen/submit-evidence" element={<CitizenEvidenceForm />} />
+                <Route path="/citizen/my-reports" element={<MyReports />} />
+                <Route path="/citizen/ticket/:id" element={<TicketDetail />} />
+                <Route path="/citizen/notifications" element={<Notifications />} />
+                <Route path="/citizen/login" element={<Login />} />
 
-              {/* Worker Routes */}
-              <Route path="/worker" element={<Navigate to="/worker/dashboard" replace />} />
-              <Route path="/worker/login" element={<Login />} />
-              <Route path="/worker/dashboard" element={<WorkerDashboard />} />
+                {/* Officer / Admin Routes */}
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+                <Route path="/officer" element={<Navigate to="/admin/dashboard" replace />} />
+                <Route path="/admin/login" element={<Login />} />
+                <Route path="/officer/login" element={<Login />} />
+                <Route path="/admin/dashboard" element={<OfficerDashboard />} />
+                <Route path="/officer/dashboard" element={<OfficerDashboard />} />
+                <Route path="/admin/complaints" element={<OfficerComplaints />} />
+                <Route path="/officer/complaints" element={<OfficerComplaints />} />
+                <Route path="/admin/complaint/:id" element={<OfficerComplaintDetail />} />
+                <Route path="/officer/complaint/:id" element={<OfficerComplaintDetail />} />
+                <Route path="/admin/reports" element={<OfficerReports />} />
+                <Route path="/officer/reports" element={<OfficerReports />} />
+                <Route path="/admin/workers" element={<OfficerWorkers />} />
+                <Route path="/officer/workers" element={<OfficerWorkers />} />
+                <Route path="/admin/settings" element={<OfficerSettings />} />
+                <Route path="/officer/settings" element={<OfficerSettings />} />
+                <Route path="/admin/telemetry" element={<OfficerTelemetry />} />
+                <Route path="/officer/telemetry" element={<OfficerTelemetry />} />
 
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                {/* Worker Routes */}
+                <Route path="/worker" element={<Navigate to="/worker/dashboard" replace />} />
+                <Route path="/worker/login" element={<Login />} />
+                <Route path="/worker/dashboard" element={<WorkerDashboard />} />
+
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ErrorBoundary>
           </main>
 
           {/* Civic Operations Footer */}

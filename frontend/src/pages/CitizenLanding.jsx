@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Search, MapPin, Sparkles, CheckCircle2,
-  TrendingUp, Shield, Clock, Compass, Layers, ArrowRight, Zap
+  TrendingUp, Shield, Clock, Compass, Layers, ArrowRight, Zap, FileText
 } from 'lucide-react';
 
 export default function CitizenLanding() {
@@ -65,23 +65,36 @@ export default function CitizenLanding() {
             Eliminate municipal backlog and citizen frustration. UrbanGrid combines multimodal Vision AI with high-precision PostGIS spatial proximity to merge duplicate reports within 50 meters, escalate collective priority, and dispatch field crews automatically.
           </p>
 
-          {/* Primary Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+          {/* Primary Action Buttons: Report Issue vs Submit Evidence (Section 2) */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             <Link
               to="/citizen/report"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-sky-600 via-blue-600 to-cyan-500 hover:from-sky-500 hover:to-cyan-400 text-white font-bold text-base shadow-lg shadow-sky-600/30 flex items-center justify-center space-x-2.5 transition-all transform hover:-translate-y-0.5"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-lg shadow-sky-600/30 flex items-center justify-center space-x-2 transition-all transform hover:-translate-y-0.5"
             >
-              <AlertTriangle className="w-5 h-5 text-white" />
-              <span>Report a Civic Issue Now</span>
+              <AlertTriangle className="w-4 h-4 text-white" />
+              <span>Report a New Issue</span>
+            </Link>
+
+            <Link
+              to="/citizen/submit-evidence"
+              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all transform hover:-translate-y-0.5"
+            >
+              <FileText className="w-4 h-4 text-white" />
+              <span>Submit Evidence / Update</span>
             </Link>
 
             <Link
               to="/citizen/my-reports"
-              className="w-full sm:w-auto px-6 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-semibold text-base border border-slate-700/80 flex items-center justify-center space-x-2 transition-colors"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-semibold text-sm border border-slate-700/80 flex items-center justify-center space-x-2 transition-colors"
             >
-              <Compass className="w-5 h-5 text-slate-400" />
-              <span>Track Active Reports</span>
+              <Compass className="w-4 h-4 text-slate-400" />
+              <span>Track Reports</span>
             </Link>
+          </div>
+
+          <div className="text-xs text-slate-400 mb-8 max-w-xl mx-auto flex items-center justify-center space-x-4">
+            <span>&bull; New Issue: Report new civic defect</span>
+            <span>&bull; Evidence: Follow-up photos/status on work</span>
           </div>
 
           {/* Quick Track Input */}

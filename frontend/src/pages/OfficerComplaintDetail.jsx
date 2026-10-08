@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, ShieldCheck, MapPin, Calendar, Clock, AlertTriangle,
   ArrowLeft, CheckCircle2, Hammer, User, Layers, Sparkles, Send,
-  RefreshCw, Check
+  RefreshCw, Check, FileText, ArrowRight
 } from 'lucide-react';
 import MapComponent from '../components/MapComponent';
 import { apiRequest } from '../api/client';
@@ -24,6 +24,7 @@ export default function OfficerComplaintDetail() {
   const [verifyNotes, setVerifyNotes] = useState('Physical repairs inspected and verified on site in accordance with municipal standards.');
   const [verifying, setVerifying] = useState(false);
 
+  const [evidenceReports, setEvidenceReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionSuccess, setActionSuccess] = useState(null);
 
@@ -37,6 +38,14 @@ export default function OfficerComplaintDetail() {
       setWorkers(wList || []);
       if (comp.assigned_worker_id) {
         setSelectedWorkerId(comp.assigned_worker_id.toString());
+      }
+
+      // Load related citizen evidence reports (Section 33)
+      try {
+        const evList = await apiRequest(`/complaints/${id}/evidence-reports`);
+        setEvidenceReports(evList || []);
+      } catch (err) {
+        // quiet
       }
     } catch (err) {
       console.error("Failed to load complaint details:", err);
@@ -415,6 +424,62 @@ export default function OfficerComplaintDetail() {
             </div>
           </div>
         )}
+
+        {/* Section 33: Related Citizen Evidence Reports */}
+        <div className="civic-card p-6 rounded-2xl mb-8 shadow-xl">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-base font-bold text-white flex items-center space-x-2">
+              <FileText className="w-4 h-4 text-sky-400" />
+              <span>Related Citizen Evidence Reports ({evidenceReports.length})</span>
+            </h2>
+            <Link
+              to="/admin/reports"
+              className="text-xs text-sky-400 hover:underline flex items-center space-x-1"
+            >
+              <span>[ VIEW ALL REPORTS ]</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          <p className="text-xs text-slate-400 mb-4">
+            Follow-up evidence, quality reports, and on-site observations submitted by citizens for ticket {complaint.ticket_number}
+          </p>
+
+          {evidenceReports.length === 0 ? (
+            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-500 font-mono text-center">
+              No follow-up evidence reports submitted for this ticket yet
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {evidenceReports.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs"
+                >
+                  <div>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="font-mono font-bold text-sky-400">{ev.public_report_id}</span>
+                      <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800 text-[10px] font-bold">
+                        {ev.report_type}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">Status: {ev.status}</span>
+                    </div>
+                    <div className="text-slate-300 line-clamp-1">"{ev.description}"</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      Reporter: {ev.citizen_name || 'Citizen'} &bull; {new Date(ev.created_at).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <Link
+                    to={`/admin/reports?q=${ev.public_report_id}`}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shrink-0 transition-colors"
+                  >
+                    Review Report
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Timeline */}
         <div className="civic-card p-6 rounded-2xl shadow-xl">

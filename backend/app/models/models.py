@@ -103,8 +103,15 @@ class Worker(Base):
     ward_number = Column(Integer, index=True, nullable=False)
     role = Column(String(100), default="Field Specialist")
     specialization = Column(String(100), default="Roads & Civil Works")
+    team_name = Column(String(100), default="Rapid Remediation Crew 1")
+    team_size = Column(Integer, default=3)
+    is_team_leader = Column(Boolean, default=True)
     availability = Column(String(50), default="AVAILABLE")
     status = Column(String(50), default="ACTIVE")
+    current_latitude = Column(Float, nullable=True)
+    current_longitude = Column(Float, nullable=True)
+    last_location_update = Column(DateTime(timezone=True), nullable=True)
+    is_online = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     
     user = relationship("User", back_populates="worker_profile")
@@ -149,6 +156,7 @@ class Complaint(Base):
     assigned_worker = relationship("Worker", back_populates="complaints")
     assignments = relationship("WorkAssignment", back_populates="complaint", cascade="all, delete-orphan")
     duplicate_matches = relationship("DuplicateMatch", back_populates="matched_complaint", cascade="all, delete-orphan")
+    evidence_reports = relationship("CitizenEvidenceReport", back_populates="complaint", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_complaint_coords", "latitude", "longitude"),
@@ -300,3 +308,71 @@ class AITelemetryLog(Base):
     structured_result = Column(JSON, nullable=True)
     confidence = Column(Float, nullable=True)
     error_message = Column(Text, nullable=True)
+
+class CitizenEvidenceReport(Base):
+    __tablename__ = "citizen_evidence_reports"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    public_report_id = Column(String(50), unique=True, index=True, nullable=False)
+    related_ticket_number = Column(String(50), index=True, nullable=True)
+    complaint_id = Column(Integer, ForeignKey("complaints.id"), nullable=True, index=True)
+    citizen_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    citizen_name = Column(String(255), default="Citizen Reporter")
+    citizen_phone = Column(String(50), nullable=True)
+    report_type = Column(String(100), nullable=False, index=True)
+    description = Column(Text, nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    location_name = Column(Text, nullable=True)
+    ward_number = Column(Integer, nullable=True, index=True)
+    status = Column(String(50), default="RECEIVED", index=True)
+    priority = Column(String(50), default="MEDIUM", index=True)
+    assigned_worker_id = Column(Integer, ForeignKey("workers.id"), nullable=True, index=True)
+    officer_instruction = Column(Text, nullable=True)
+    officer_notes = Column(Text, nullable=True)
+    worker_notes = Column(Text, nullable=True)
+    worker_verified_at = Column(DateTime(timezone=True), nullable=True)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    
+    complaint = relationship("Complaint", back_populates="evidence_reports")
+    citizen = relationship("User", foreign_keys=[citizen_id])
+    assigned_worker = relationship("Worker", foreign_keys=[assigned_worker_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by_id])
+    attachments = relationship("EvidenceAttachment", back_populates="report", cascade="all, delete-orphan")
+    timeline = relationship("EvidenceReportTimeline", back_populates="report", cascade="all, delete-orphan", order_by="EvidenceReportTimeline.created_at")
+
+    __table_args__ = (
+        Index("idx_ev_report_status_type", "status", "report_type"),
+        Index("idx_ev_report_ticket", "related_ticket_number"),
+    )
+
+class EvidenceAttachment(Base):
+    __tablename__ = "evidence_report_attachments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("citizen_evidence_reports.id"), nullable=False, index=True)
+    file_type = Column(String(20), default="photo")  # photo or video
+    file_url = Column(String(500), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    mime_type = Column(String(100), default="image/jpeg")
+    file_size_bytes = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    
+    report = relationship("CitizenEvidenceReport", back_populates="attachments")
+
+class EvidenceReportTimeline(Base):
+    __tablename__ = "evidence_report_timeline"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("citizen_evidence_reports.id"), nullable=False, index=True)
+    event_type = Column(String(100), nullable=False)
+    actor_role = Column(String(50), nullable=False)
+    actor_name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, index=True)
+    
+    report = relationship("CitizenEvidenceReport", back_populates="timeline")
+

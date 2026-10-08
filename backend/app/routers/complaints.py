@@ -13,15 +13,16 @@ from ..core.security import get_optional_user, get_current_user
 from ..models.models import (
     Complaint, ComplaintReport, ComplaintMedia, AIAnalysis,
     DuplicateMatch, ComplaintTimeline, ComplaintStatus, User,
-    SystemSetting
+    SystemSetting, CitizenEvidenceReport
 )
 from ..schemas.schemas import (
     ComplaintOut, ComplaintDetailOut, SubmissionResponse,
     DuplicateCheckRequest, DuplicateCheckResponse, DuplicateCheckMatch,
-    TimelineEventOut
+    TimelineEventOut, PaginatedComplaintsOut, CitizenEvidenceReportOut
 )
 from ..services.geospatial_service import (
-    haversine_distance_meters, assign_ward_from_coordinates, reverse_geocode_location
+    haversine_distance_meters, assign_ward_from_coordinates, reverse_geocode_location,
+    search_places_geocoding
 )
 from ..services.ai_service import analyze_civic_media
 from ..services.duplicate_engine import evaluate_duplicate_candidates, get_active_duplicate_radius
@@ -548,6 +549,60 @@ def list_complaints(
         )
     return query.order_by(desc(Complaint.created_at)).offset(offset).limit(limit).all()
 
+@router.get("/paginated", response_model=PaginatedComplaintsOut)
+def list_complaints_paginated(
+    page: int = 1,
+    limit: int = 15,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    ward_number: Optional[int] = None,
+    priority: Optional[str] = None,
+    search: Optional[str] = None,
+    city: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Server-side paginated list of complaints for Officer Dashboard"""
+    query = db.query(Complaint)
+    if category and category != "ALL":
+        query = query.filter(Complaint.category == category)
+    if status and status != "ALL":
+        query = query.filter(Complaint.status == status)
+    if ward_number:
+        query = query.filter(Complaint.ward_number == ward_number)
+    if priority and priority != "ALL":
+        query = query.filter(Complaint.priority == priority)
+    if city and city != "ALL":
+        query = query.filter(Complaint.city == city)
+    if search and search.strip():
+        search_filter = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                Complaint.ticket_number.ilike(search_filter),
+                Complaint.title.ilike(search_filter),
+                Complaint.description.ilike(search_filter),
+                Complaint.address.ilike(search_filter)
+            )
+        )
+    total = query.count()
+    offset = (page - 1) * limit
+    items = query.order_by(desc(Complaint.created_at)).offset(offset).limit(limit).all()
+    total_pages = max(1, (total + limit - 1) // limit)
+    return PaginatedComplaintsOut(
+        items=items,
+        total=total,
+        page=page,
+        limit=limit,
+        total_pages=total_pages
+    )
+
+@router.get("/search-location")
+async def search_location_endpoint(q: Optional[str] = Query(None), query: Optional[str] = Query(None)):
+    """Real location search across Tamil Nadu via Nominatim geocoding service"""
+    term = q or query or ""
+    if not term.strip():
+        return []
+    return await search_places_geocoding(term)
+
 @router.get("/my-reports", response_model=List[ComplaintOut])
 def get_my_reports(
     db: Session = Depends(get_db),
@@ -560,6 +615,20 @@ def get_my_reports(
     ids = [r[0] for r in report_complaint_ids]
     return db.query(Complaint).filter(Complaint.id.in_(ids)).order_by(desc(Complaint.created_at)).all()
 
+@router.get("/ticket/{ticket_number}", response_model=ComplaintDetailOut)
+def get_complaint_by_ticket(ticket_number: str, db: Session = Depends(get_db)):
+    complaint = db.query(Complaint).filter(Complaint.ticket_number == ticket_number.upper()).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail=f"No complaint found with ticket number {ticket_number}")
+    return complaint
+
+@router.get("/track/{ticket_number}", response_model=ComplaintDetailOut)
+def track_complaint_by_ticket(ticket_number: str, db: Session = Depends(get_db)):
+    complaint = db.query(Complaint).filter(Complaint.ticket_number == ticket_number.upper()).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail=f"No complaint found with ticket number {ticket_number}")
+    return complaint
+
 @router.get("/{id}", response_model=ComplaintDetailOut)
 def get_complaint_detail(id: int, db: Session = Depends(get_db)):
     complaint = db.query(Complaint).filter(Complaint.id == id).first()
@@ -567,16 +636,23 @@ def get_complaint_detail(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Complaint not found")
     return complaint
 
+@router.get("/{id}/evidence-reports", response_model=List[CitizenEvidenceReportOut])
+def get_complaint_evidence_reports(id: int, db: Session = Depends(get_db)):
+    """Returns all citizen evidence reports associated with complaint ID"""
+    complaint = db.query(Complaint).filter(Complaint.id == id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+    reports = db.query(CitizenEvidenceReport).filter(CitizenEvidenceReport.complaint_id == id).all()
+    results = []
+    for r in reports:
+        out = CitizenEvidenceReportOut.model_validate(r)
+        out.attachment_count = len(r.attachments)
+        results.append(out)
+    return results
+
 @router.get("/{id}/timeline", response_model=List[TimelineEventOut])
 def get_complaint_timeline(id: int, db: Session = Depends(get_db)):
     complaint = db.query(Complaint).filter(Complaint.id == id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
     return db.query(ComplaintTimeline).filter(ComplaintTimeline.complaint_id == id).order_by(ComplaintTimeline.created_at.asc()).all()
-
-@router.get("/ticket/{ticket_number}", response_model=ComplaintDetailOut)
-def get_complaint_by_ticket(ticket_number: str, db: Session = Depends(get_db)):
-    complaint = db.query(Complaint).filter(Complaint.ticket_number == ticket_number.upper()).first()
-    if not complaint:
-        raise HTTPException(status_code=404, detail=f"No complaint found with ticket number {ticket_number}")
-    return complaint

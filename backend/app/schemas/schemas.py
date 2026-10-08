@@ -13,6 +13,7 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: Optional[str] = None
     email_or_username: Optional[str] = None
+    username: Optional[str] = None
     password: str
 
 class UserOut(BaseModel):
@@ -41,6 +42,9 @@ class WorkerCreate(BaseModel):
     ward_number: int
     role: Optional[str] = "Field Specialist"
     specialization: Optional[str] = "Roads & Civil Works"
+    team_name: Optional[str] = "Rapid Remediation Crew 1"
+    team_size: Optional[int] = 3
+    is_team_leader: Optional[bool] = True
 
 class WorkerUpdate(BaseModel):
     name: Optional[str] = None
@@ -48,6 +52,9 @@ class WorkerUpdate(BaseModel):
     ward_number: Optional[int] = None
     role: Optional[str] = None
     specialization: Optional[str] = None
+    team_name: Optional[str] = None
+    team_size: Optional[int] = None
+    is_team_leader: Optional[bool] = None
     availability: Optional[str] = None
     status: Optional[str] = None
 
@@ -60,12 +67,23 @@ class WorkerOut(BaseModel):
     ward_number: int
     role: str
     specialization: str
+    team_name: Optional[str] = None
+    team_size: Optional[int] = None
+    is_team_leader: Optional[bool] = None
     availability: str
     status: str
+    current_latitude: Optional[float] = None
+    current_longitude: Optional[float] = None
+    last_location_update: Optional[datetime] = None
+    is_online: Optional[bool] = True
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+class WorkerLocationUpdate(BaseModel):
+    latitude: float
+    longitude: float
 
 # Complaint Media
 class MediaOut(BaseModel):
@@ -237,3 +255,122 @@ class AssignWorkerRequest(BaseModel):
 class VerifyComplaintRequest(BaseModel):
     verification_notes: Optional[str] = None
     is_approved: bool = True
+
+# Pagination
+class PaginatedComplaintsOut(BaseModel):
+    items: List[ComplaintOut]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
+# Officer Lightweight Dashboard Summary
+class OfficerSummaryStatsOut(BaseModel):
+    total_complaints: int
+    new_today: int
+    active_issues: int
+    critical_high: int
+    assigned_jobs: int
+    in_progress_jobs: int
+    awaiting_verification: int
+    resolved_complaints: int
+    total_workers: int
+    available_workers: int
+    unresolved_complaints: int
+    total_evidence_reports: int
+    pending_evidence_reports: int
+
+# Citizen Evidence Report Schemas
+class EvidenceAttachmentOut(BaseModel):
+    id: int
+    file_type: str
+    file_url: str
+    file_name: str
+    mime_type: str
+    file_size_bytes: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class EvidenceReportTimelineOut(BaseModel):
+    id: int
+    event_type: str
+    actor_role: str
+    actor_name: str
+    description: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CitizenEvidenceReportOut(BaseModel):
+    id: int
+    public_report_id: str
+    related_ticket_number: Optional[str] = None
+    complaint_id: Optional[int] = None
+    citizen_name: str
+    citizen_phone: Optional[str] = None
+    report_type: str
+    description: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    location_name: Optional[str] = None
+    ward_number: Optional[int] = None
+    status: str
+    priority: str
+    assigned_worker_id: Optional[int] = None
+    officer_instruction: Optional[str] = None
+    officer_notes: Optional[str] = None
+    worker_notes: Optional[str] = None
+    worker_verified_at: Optional[datetime] = None
+    reviewed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    attachments: List[EvidenceAttachmentOut] = []
+    attachment_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+class CitizenEvidenceReportDetailOut(CitizenEvidenceReportOut):
+    timeline: List[EvidenceReportTimelineOut] = []
+    related_complaint_status: Optional[str] = None
+    assigned_worker_name: Optional[str] = None
+
+class EvidenceReportStatsOut(BaseModel):
+    total: int
+    new_received: int
+    under_review: int
+    action_required: int
+    worker_verification: int
+    resolved_closed: int
+
+class PaginatedEvidenceReportsOut(BaseModel):
+    items: List[CitizenEvidenceReportOut]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
+class ReviewEvidenceReportRequest(BaseModel):
+    action: str  # UNDER_REVIEW, ACTION_REQUIRED, CLOSE, REJECT, UPDATE_STATUS
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    notes: Optional[str] = None
+
+class ForwardReportToWorkerRequest(BaseModel):
+    worker_id: int
+    instruction: str
+    priority: Optional[str] = "HIGH"
+
+class WorkerVerifyReportRequest(BaseModel):
+    worker_notes: str
+
+class EvidenceReportSubmissionResponse(BaseModel):
+    status: str
+    report_id: str
+    id: int
+    message: str
+    related_ticket: Optional[str] = None
+

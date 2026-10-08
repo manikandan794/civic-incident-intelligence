@@ -130,3 +130,63 @@ async def reverse_geocode_location(lat: float, lng: float) -> str:
         
     ward_info = assign_ward_from_coordinates(lat, lng)
     return f"Coordinates ({lat:.4f}, {lng:.4f}), {ward_info['name']}, {ward_info['city']}, Tamil Nadu"
+
+async def search_places_geocoding(query: str):
+    """
+    Real geocoding search using Nominatim OpenStreetMap with fallback to Tamil Nadu landmarks.
+    Enables citizens to search any location across Tamil Nadu e.g. "Ramanathapuram Bus Stand".
+    """
+    results = []
+    q = (query or "").strip()
+    if not q or len(q) < 2:
+        return results
+
+    try:
+        search_query = q if ("tamil nadu" in q.lower() or "chennai" in q.lower()) else f"{q}, Tamil Nadu, India"
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            "q": search_query,
+            "format": "jsonv2",
+            "limit": 6,
+            "addressdetails": 1
+        }
+        headers = {"User-Agent": "UrbanGrid-CivicOperations/1.0"}
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                for item in data:
+                    lt = float(item["lat"])
+                    ln = float(item["lon"])
+                    disp = item.get("display_name", q)
+                    results.append({
+                        "name": disp,
+                        "display_name": disp,
+                        "lat": lt,
+                        "lng": ln,
+                        "latitude": lt,
+                        "longitude": ln,
+                        "type": item.get("type", "locality")
+                    })
+    except Exception as e:
+        logger.debug(f"Nominatim geocoding search failed: {e}")
+
+    # Fallback to local Tamil Nadu municipal landmarks
+    if not results:
+        q_lower = q.lower()
+        for w in TAMIL_NADU_WARDS:
+            if (q_lower in w["name"].lower() or 
+                q_lower in w["city"].lower() or 
+                q_lower in w.get("zone_name", "").lower()):
+                disp = f"{w['name']}, {w['city']}, Tamil Nadu"
+                results.append({
+                    "name": disp,
+                    "display_name": disp,
+                    "lat": w["lat"],
+                    "lng": w["lng"],
+                    "latitude": w["lat"],
+                    "longitude": w["lng"],
+                    "type": "ward"
+                })
+
+    return results

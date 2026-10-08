@@ -1,4 +1,6 @@
+from typing import Optional, List
 from datetime import datetime, timezone, date
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, and_
@@ -7,12 +9,71 @@ from ..core.database import get_db
 from ..core.security import require_officer_or_admin
 from ..models.models import (
     Complaint, ComplaintStatus, PriorityLevel, Worker,
-    WorkAssignment, ComplaintTimeline, User, Notification
+    WorkAssignment, ComplaintTimeline, User, Notification,
+    CitizenEvidenceReport
 )
-from ..schemas.schemas import AssignWorkerRequest, VerifyComplaintRequest, ComplaintDetailOut
-from ..services.notification_service import create_notification
+from ..schemas.schemas import (
+    AssignWorkerRequest, VerifyComplaintRequest, ComplaintDetailOut,
+    OfficerSummaryStatsOut
+)
+from ..services.notification_service import create_notification, clean_safe_ascii
 
 router = APIRouter(prefix="/api/officer", tags=["Municipal Ward Officer"])
+
+@router.get("/summary", response_model=OfficerSummaryStatsOut)
+def get_officer_summary_stats(
+    ward_number: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_officer_or_admin)
+):
+    """Ultra-fast aggregated summary KPIs for immediate Officer Dashboard rendering."""
+    q = db.query(Complaint)
+    if ward_number:
+        q = q.filter(Complaint.ward_number == ward_number)
+
+    total_complaints = q.count()
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    new_today = q.filter(Complaint.created_at >= today_start).count()
+    active_issues = q.filter(Complaint.status.notin_([ComplaintStatus.RESOLVED.value, ComplaintStatus.REJECTED.value])).count()
+    critical_high = q.filter(
+        Complaint.priority.in_([PriorityLevel.CRITICAL.value, PriorityLevel.HIGH.value]),
+        Complaint.status.notin_([ComplaintStatus.RESOLVED.value, ComplaintStatus.REJECTED.value])
+    ).count()
+
+    assigned_jobs = q.filter(Complaint.assigned_worker_id.isnot(None), Complaint.status != ComplaintStatus.RESOLVED.value).count()
+    in_progress_jobs = q.filter(Complaint.status == ComplaintStatus.IN_PROGRESS.value).count()
+    awaiting_verification = q.filter(Complaint.status == ComplaintStatus.WORK_COMPLETED.value).count()
+    resolved_complaints = q.filter(Complaint.status == ComplaintStatus.RESOLVED.value).count()
+
+    wq = db.query(Worker)
+    if ward_number:
+        wq = wq.filter(Worker.ward_number == ward_number)
+    total_workers = wq.count()
+    available_workers = wq.filter(Worker.availability == "AVAILABLE", Worker.status == "ACTIVE").count()
+
+    unresolved = q.filter(Complaint.status != ComplaintStatus.RESOLVED.value).count()
+
+    eq = db.query(CitizenEvidenceReport)
+    if ward_number:
+        eq = eq.filter(CitizenEvidenceReport.ward_number == ward_number)
+    total_evidence_reports = eq.count()
+    pending_evidence_reports = eq.filter(CitizenEvidenceReport.status.in_(["RECEIVED", "UNDER_REVIEW", "ACTION_REQUIRED", "WORKER_VERIFICATION"])).count()
+
+    return OfficerSummaryStatsOut(
+        total_complaints=total_complaints,
+        new_today=new_today,
+        active_issues=active_issues,
+        critical_high=critical_high,
+        assigned_jobs=assigned_jobs,
+        in_progress_jobs=in_progress_jobs,
+        awaiting_verification=awaiting_verification,
+        resolved_complaints=resolved_complaints,
+        total_workers=total_workers,
+        available_workers=available_workers,
+        unresolved_complaints=unresolved,
+        total_evidence_reports=total_evidence_reports,
+        pending_evidence_reports=pending_evidence_reports
+    )
 
 @router.get("/dashboard")
 def get_officer_dashboard_metrics(
@@ -185,7 +246,7 @@ def verify_and_resolve_complaint(
     # Citizen Notification
     create_notification(
         db, target_role="CITIZEN",
-        title=f"✅ Grievance Resolved: {complaint.ticket_number}",
+        title=f"Grievance Resolved: {complaint.ticket_number}",
         message=f"Work on {complaint.category} at Ward {complaint.ward_number} has been verified and officially resolved by Municipal Officers.",
         complaint_id=complaint.id, notification_type="SUCCESS"
     )
@@ -195,3 +256,69 @@ def verify_and_resolve_complaint(
         "message": f"Complaint {complaint.ticket_number} verified and officially resolved.",
         "resolved_at": now
     }
+
+class ComplaintAdminUpdate(BaseModel):
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    ward_number: Optional[int] = None
+    category: Optional[str] = None
+    notes: Optional[str] = None
+
+@router.patch("/complaints/{id}")
+def update_complaint_admin(
+    id: int,
+    req: ComplaintAdminUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_officer_or_admin)
+):
+    complaint = db.query(Complaint).filter(Complaint.id == id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    now = datetime.now(timezone.utc)
+    changes = []
+    if req.status and req.status != complaint.status:
+        changes.append(f"Status: {complaint.status} -> {req.status}")
+        complaint.status = req.status
+        if req.status == "RESOLVED":
+            complaint.resolved_at = now
+    if req.priority and req.priority != complaint.priority:
+        changes.append(f"Priority: {complaint.priority} -> {req.priority}")
+        complaint.priority = req.priority
+    if req.ward_number and req.ward_number != complaint.ward_number:
+        changes.append(f"Ward: {complaint.ward_number} -> {req.ward_number}")
+        complaint.ward_number = req.ward_number
+    if req.category and req.category != complaint.category:
+        changes.append(f"Category: {complaint.category} -> {req.category}")
+        complaint.category = req.category
+
+    complaint.updated_at = now
+
+    if changes:
+        tl = ComplaintTimeline(
+            complaint_id=complaint.id,
+            event_type="OFFICER_UPDATED",
+            actor_role="OFFICER",
+            actor_name=current_user.full_name,
+            description=f"Administrative modifications: {', '.join(changes)}. Notes: {req.notes or 'None'}"
+        )
+        db.add(tl)
+
+    db.commit()
+    return {"status": "SUCCESS", "message": f"Complaint {complaint.ticket_number} updated", "ticket_number": complaint.ticket_number}
+
+@router.delete("/complaints/{id}")
+def delete_complaint_admin(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_officer_or_admin)
+):
+    complaint = db.query(Complaint).filter(Complaint.id == id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    t_num = complaint.ticket_number
+    db.delete(complaint)
+    db.commit()
+    return {"status": "SUCCESS", "message": f"Complaint {t_num} deleted from municipal records"}
+

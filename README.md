@@ -58,16 +58,18 @@ FastAPI Gateway & Uvicorn Async Server
 
 ## 🔑 Demo Access Credentials
 
-| Role | Username / Email | Password | One-Click Demo Action |
+| Role | Username / Identifier | Password | Description |
 | :--- | :--- | :--- | :--- |
-| **Ward Officer / Admin** | `officer@chennai.urbangrid.gov.in` | `Officer@1234` | Click **"Officer Quick Fill"** on Login |
-| **Field Specialist** | `worker.karthik` | `Worker@1234` | Click **"Worker Quick Fill"** on Login |
-| **Public Citizen** | `citizen.anbu@gmail.com` | `Citizen@1234` | Click **"Citizen Quick Fill"** on Login |
+| **Municipal Officer / Admin** | `admin` | `admin123` | Full Command & Control Dashboard, Worker Dispatch, Verification Queue |
+| **Field Specialist** | `worker_001` | `worker123` | Mobile-First Field Worker Portal, Live GPS Beacon, Task Execution |
+| **Ward Officer (Alternative)** | `officer@chennai.urbangrid.gov.in` | `Officer@1234` | Alternate Ward Officer Demo Account |
+| **Field Crew (Alternative)** | `worker.karthik` | `Worker@1234` | Alternate Field Specialist Demo Account |
+| **Public Citizen** | `citizen.anbu@gmail.com` | `Citizen@1234` | Track Personal Reports (or file anonymously) |
 
 **Anchor Ticket for Golden Demo:**
 - **Ticket ID:** `UG-1001` (Royapuram Pothole)
 - **Coordinates:** `13.10750, 80.29340`
-- **Duplicate Test Coordinate:** `13.10770, 80.29340` (22.2m away)
+- **Duplicate Test Coordinate:** `13.10770, 80.29340` (22.2m away, within 50m radius)
 
 ---
 

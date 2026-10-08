@@ -8,7 +8,10 @@ from fastapi.responses import JSONResponse, FileResponse
 
 from .core.config import settings
 from .core.database import init_db
-from .routers import auth, complaints, officer, workers, notifications, settings as app_settings, telemetry
+from .routers import (
+    auth, complaints, officer, workers, notifications,
+    settings as app_settings, telemetry, evidence_reports
+)
 from .db.seed import seed_database
 
 logging.basicConfig(
@@ -67,6 +70,7 @@ app.include_router(workers.router)
 app.include_router(notifications.router)
 app.include_router(app_settings.router)
 app.include_router(telemetry.router)
+app.include_router(evidence_reports.router)
 
 @app.get("/api/health")
 def health_check():

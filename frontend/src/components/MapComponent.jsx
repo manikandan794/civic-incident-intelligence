@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -39,6 +39,17 @@ function ChangeMapView({ center, zoom }) {
   return null;
 }
 
+function MapClickHandler({ onMapClick }) {
+  useMapEvents({
+    click(e) {
+      if (onMapClick) {
+        onMapClick(e.latlng.lat, e.latlng.lng);
+      }
+    }
+  });
+  return null;
+}
+
 export default function MapComponent({
   center = [13.0827, 80.2707],
   zoom = 13,
@@ -62,6 +73,7 @@ export default function MapComponent({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <ChangeMapView center={center} zoom={zoom} />
+        {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
 
         {/* Optional Radius Circle (e.g. 50 meters active duplicate radius) */}
         {radiusCircle && radiusCircle.center && (

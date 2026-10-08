@@ -6,28 +6,41 @@ from ..core.config import settings
 from ..models.models import (
     User, Worker, Ward, Complaint, ComplaintReport, ComplaintMedia,
     AIAnalysis, ComplaintTimeline, Notification, WorkAssignment,
-    SystemSetting, UserRole, ComplaintStatus, SeverityLevel, PriorityLevel
+    SystemSetting, UserRole, ComplaintStatus, SeverityLevel, PriorityLevel,
+    CitizenEvidenceReport, EvidenceAttachment, EvidenceReportTimeline,
+    DuplicateMatch
 )
+from sqlalchemy import or_, text
 from ..services.geospatial_service import TAMIL_NADU_WARDS
 
 def seed_database(reset: bool = False):
     """Populates realistic Tamil Nadu municipal seed data for competition demo"""
     init_db()
     db = SessionLocal()
+    now = datetime.now(timezone.utc)
     
     try:
         if reset:
-            db.query(Notification).delete()
-            db.query(WorkAssignment).delete()
-            db.query(ComplaintTimeline).delete()
-            db.query(AIAnalysis).delete()
-            db.query(ComplaintMedia).delete()
-            db.query(ComplaintReport).delete()
-            db.query(Complaint).delete()
-            db.query(Worker).delete()
-            db.query(Ward).delete()
-            db.query(User).delete()
-            db.commit()
+            try:
+                db.execute(text("TRUNCATE TABLE duplicate_matches, evidence_report_timelines, evidence_attachments, citizen_evidence_reports, notifications, work_assignments, complaint_timelines, ai_analyses, complaint_media, complaint_reports, complaints, workers, wards, users RESTART IDENTITY CASCADE"))
+                db.commit()
+            except Exception:
+                db.rollback()
+                db.query(DuplicateMatch).delete(synchronize_session=False)
+                db.query(EvidenceReportTimeline).delete(synchronize_session=False)
+                db.query(EvidenceAttachment).delete(synchronize_session=False)
+                db.query(CitizenEvidenceReport).delete(synchronize_session=False)
+                db.query(Notification).delete(synchronize_session=False)
+                db.query(WorkAssignment).delete(synchronize_session=False)
+                db.query(ComplaintTimeline).delete(synchronize_session=False)
+                db.query(AIAnalysis).delete(synchronize_session=False)
+                db.query(ComplaintMedia).delete(synchronize_session=False)
+                db.query(ComplaintReport).delete(synchronize_session=False)
+                db.query(Complaint).delete(synchronize_session=False)
+                db.query(Worker).delete(synchronize_session=False)
+                db.query(Ward).delete(synchronize_session=False)
+                db.query(User).delete(synchronize_session=False)
+                db.commit()
             print("Database reset successfully.")
 
         # 1. System Settings
@@ -57,6 +70,21 @@ def seed_database(reset: bool = False):
             db.commit()
 
         # 3. Users (Officer, Worker, Citizen)
+        # Admin / Municipal Commissioner
+        admin_user = db.query(User).filter(or_(User.email == "admin@urbangrid.gov.in", User.email == "admin")).first()
+        if not admin_user:
+            admin_user = User(
+                email="admin@urbangrid.gov.in",
+                full_name="Municipal Operations Commissioner",
+                phone="+91 94440 00000",
+                password_hash=get_password_hash("admin123"),
+                role=UserRole.ADMIN.value,
+                is_active=True
+            )
+            db.add(admin_user)
+            db.commit()
+            db.refresh(admin_user)
+
         # Officer
         officer_user = db.query(User).filter(User.email == "officer@chennai.urbangrid.gov.in").first()
         if not officer_user:
@@ -360,6 +388,82 @@ def seed_database(reset: bool = False):
             )
             db.add(notif1)
             db.add(notif2)
+            db.commit()
+
+        # 6. Citizen Evidence Reports Module
+        if db.query(CitizenEvidenceReport).count() == 0:
+            ev1 = CitizenEvidenceReport(
+                public_report_id="REP-0001",
+                related_ticket_number="UG-1001",
+                complaint_id=golden.id,
+                citizen_id=citizen_user.id,
+                citizen_name="Anbuselvan K",
+                citizen_phone="+91 97890 12345",
+                report_type="Issue Still Exists",
+                description="Road damage and asphalt disintegration is still visible after yesterday's rain near the Royapuram junction.",
+                latitude=13.1076,
+                longitude=80.2935,
+                location_name="Royapuram Main Road, Ward 12, Chennai",
+                ward_number=12,
+                status="RECEIVED",
+                priority="HIGH",
+                created_at=now - timedelta(hours=3)
+            )
+            db.add(ev1)
+            db.commit()
+            db.refresh(ev1)
+
+            att1 = EvidenceAttachment(
+                report_id=ev1.id,
+                file_type="photo",
+                file_url="/uploads/pothole_evidence.jpg",
+                file_name="pothole_condition_followup.jpg",
+                mime_type="image/jpeg",
+                file_size_bytes=45200,
+                created_at=now - timedelta(hours=3)
+            )
+            db.add(att1)
+
+            t1 = EvidenceReportTimeline(
+                report_id=ev1.id,
+                event_type="REPORT_SUBMITTED",
+                actor_role="CITIZEN",
+                actor_name="Anbuselvan K",
+                description="Citizen submitted follow-up evidence: Road damage is still visible.",
+                created_at=now - timedelta(hours=3)
+            )
+            db.add(t1)
+
+            ev2 = CitizenEvidenceReport(
+                public_report_id="REP-0002",
+                related_ticket_number="UG-1015",
+                complaint_id=tambaram_comp.id,
+                citizen_id=citizen_user.id,
+                citizen_name="Karthik Citizen",
+                citizen_phone="+91 98402 11111",
+                report_type="Work Completed",
+                description="Streetlight pole #14 has been rewired and light fixture is illuminated properly at night.",
+                latitude=12.9345,
+                longitude=80.1250,
+                location_name="Sanatorium Main Road, Ward 32, Tambaram",
+                ward_number=32,
+                status="UNDER_REVIEW",
+                priority="MEDIUM",
+                created_at=now - timedelta(hours=1, minutes=30)
+            )
+            db.add(ev2)
+            db.commit()
+            db.refresh(ev2)
+
+            t2 = EvidenceReportTimeline(
+                report_id=ev2.id,
+                event_type="REPORT_SUBMITTED",
+                actor_role="CITIZEN",
+                actor_name="Karthik Citizen",
+                description="Citizen reported work completion observation with photo.",
+                created_at=now - timedelta(hours=1, minutes=30)
+            )
+            db.add(t2)
             db.commit()
 
         print("UrbanGrid Tamil Nadu Demo Data Seeded Successfully!")
