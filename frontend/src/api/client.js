@@ -1,4 +1,14 @@
-const API_BASE = '/api';
+// Resolve API base URL: respects VITE_API_URL environment variable for Render Static Site
+const envApiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+export const API_BASE = envApiUrl ? (envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl}/api`) : '/api';
+export const BACKEND_URL = envApiUrl ? envApiUrl.replace(/\/api$/, '') : '';
+
+export function getMediaUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return BACKEND_URL ? `${BACKEND_URL}${cleanPath}` : cleanPath;
+}
 
 export async function apiRequest(endpoint, options = {}) {
   const token = localStorage.getItem('urbangrid_token');

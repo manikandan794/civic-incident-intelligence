@@ -27,8 +27,9 @@ class Settings(BaseSettings):
     TAMIL_NADU_CENTER_LAT: float = 13.0827
     TAMIL_NADU_CENTER_LNG: float = 80.2707
     
-    # CORS
+    # CORS & Deployment
     CORS_ORIGINS: str = "*"
+    FRONTEND_URL: str = ""
     
     # File uploads
     UPLOAD_DIR: str = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "uploads"))

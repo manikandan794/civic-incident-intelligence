@@ -4,7 +4,7 @@ import {
   Check, FileText, RefreshCw, Sparkles, User, Radio, Camera,
   Send, X, ExternalLink, HardHat, Compass
 } from 'lucide-react';
-import { apiRequest } from '../api/client';
+import { apiRequest, getMediaUrl } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function WorkerDashboard() {
@@ -282,9 +282,9 @@ export default function WorkerDashboard() {
                         {task.media.map((m, i) => (
                           <div key={i} className="aspect-video rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
                             {m.media_type === 'video' ? (
-                              <video src={m.file_url} controls className="w-full h-full object-cover" />
+                              <video src={getMediaUrl(m.file_url)} controls className="w-full h-full object-cover" />
                             ) : (
-                              <img src={m.file_url} alt="Defect" className="w-full h-full object-cover" />
+                              <img src={getMediaUrl(m.file_url)} alt="Defect" className="w-full h-full object-cover" />
                             )}
                           </div>
                         ))}

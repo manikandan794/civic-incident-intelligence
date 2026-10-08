@@ -1,29 +1,58 @@
+# ====================================================================
+# Render Blueprint Configuration for URBANGRID
+# Web Service (FastAPI) + Static Site (React/Vite SPA) + PostgreSQL DB
+# ====================================================================
+
 services:
+  # 1. FRONTEND: Render Static Site (React 18 + Vite)
+  - type: static
+    name: urbangrid-frontend
+    region: singapore
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: frontend/dist
+    routes:
+      # SPA fallback: all frontend routes rewrite to /index.html
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    envVars:
+      - key: VITE_API_URL
+        # Set to the backend Web Service URL in Render dashboard
+        sync: false
+
+  # 2. BACKEND: Render Web Service (FastAPI + Uvicorn)
   - type: web
-    name: urbangrid-platform
+    name: urbangrid-backend
     env: python
     region: singapore
     plan: free
-    buildCommand: "pip install -r backend/requirements.txt && cd frontend && npm install && npm run build && cd .."
-    startCommand: "python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: "/health"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: urbangrid-postgis-db
+          name: urbangrid-db
           property: connectionString
       - key: ENVIRONMENT
-        value: production
-      - key: GEMINI_API_KEY
-        sync: false
+        value: "production"
       - key: JWT_SECRET
         generateValue: true
+      - key: GEMINI_API_KEY
+        # Enter your Gemini API key in the Render dashboard
+        sync: false
+      - key: FRONTEND_URL
+        # Enter your deployed frontend static site URL in the Render dashboard
+        sync: false
       - key: CORS_ORIGINS
-        value: "*"
+        # Enter your deployed frontend origin(s) in Render dashboard
+        sync: false
       - key: DEFAULT_DUPLICATE_RADIUS_METERS
         value: "50.0"
 
+# 3. DATABASE: Managed PostgreSQL Instance
 databases:
-  - name: urbangrid-postgis-db
+  - name: urbangrid-db
     databaseName: urbangrid
     user: urbangrid_admin
     region: singapore

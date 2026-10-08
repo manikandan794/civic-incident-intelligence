@@ -6,7 +6,7 @@ import {
   HardHat, User, Building2, Send, X, ExternalLink, ChevronRight,
   ShieldCheck, Check, Sparkles, MessageSquare
 } from 'lucide-react';
-import { apiRequest } from '../api/client';
+import { apiRequest, getMediaUrl } from '../api/client';
 import MapComponent from '../components/MapComponent';
 
 export default function OfficerReports() {
@@ -603,10 +603,10 @@ export default function OfficerReports() {
                           {reportDetail.attachments.filter(a => a.file_type === 'photo').map((att, i) => (
                             <div
                               key={i}
-                              onClick={() => setEnlargedPhotoUrl(att.file_url)}
+                              onClick={() => setEnlargedPhotoUrl(getMediaUrl(att.file_url))}
                               className="cursor-pointer group relative aspect-video rounded-xl overflow-hidden border border-slate-700 bg-slate-950 hover:border-sky-400 transition-all"
                             >
-                              <img src={att.file_url} alt="Evidence" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <img src={getMediaUrl(att.file_url)} alt="Evidence" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs font-bold text-white">
                                 <Eye className="w-4 h-4 mr-1" /> View Full
                               </div>
@@ -624,7 +624,7 @@ export default function OfficerReports() {
                           </div>
                           {reportDetail.attachments.filter(a => a.file_type === 'video').map((vAtt, i) => (
                             <div key={i} className="max-w-md rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
-                              <video src={vAtt.file_url} controls preload="metadata" className="w-full max-h-56 object-cover" />
+                              <video src={getMediaUrl(vAtt.file_url)} controls preload="metadata" className="w-full max-h-56 object-cover" />
                             </div>
                           ))}
                         </div>

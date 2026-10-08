@@ -6,7 +6,7 @@ import {
   RefreshCw, Check, FileText, ArrowRight
 } from 'lucide-react';
 import MapComponent from '../components/MapComponent';
-import { apiRequest } from '../api/client';
+import { apiRequest, getMediaUrl } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function OfficerComplaintDetail() {
@@ -290,9 +290,9 @@ export default function OfficerComplaintDetail() {
                     {complaint.media.map((m, i) => (
                       <div key={i} className="h-40 rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
                         {m.media_type === 'video' ? (
-                          <video src={m.file_url} controls className="w-full h-full object-cover" />
+                          <video src={getMediaUrl(m.file_url)} controls className="w-full h-full object-cover" />
                         ) : (
-                          <img src={m.file_url} alt="Evidence" className="w-full h-full object-cover" />
+                          <img src={getMediaUrl(m.file_url)} alt="Evidence" className="w-full h-full object-cover" />
                         )}
                       </div>
                     ))}

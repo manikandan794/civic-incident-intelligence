@@ -41,18 +41,24 @@ app = FastAPI(
 
 # CORS configuration
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
-if "*" in origins:
+if settings.FRONTEND_URL and settings.FRONTEND_URL.strip():
+    front = settings.FRONTEND_URL.strip().rstrip("/")
+    if front not in origins:
+        origins.append(front)
+
+if "*" in origins and len(origins) == 1:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 else:
+    filtered_origins = [o for o in origins if o != "*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins or ["*"],
+        allow_origins=filtered_origins or ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -72,6 +78,7 @@ app.include_router(app_settings.router)
 app.include_router(telemetry.router)
 app.include_router(evidence_reports.router)
 
+@app.get("/health")
 @app.get("/api/health")
 def health_check():
     return {
@@ -109,4 +116,5 @@ if os.path.exists(frontend_dist):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.app.main:app", host=settings.HOST, port=settings.PORT, reload=True)
+    port = int(os.environ.get("PORT", settings.PORT))
+    uvicorn.run("backend.app.main:app", host="0.0.0.0", port=port, reload=False)

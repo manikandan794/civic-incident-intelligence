@@ -5,7 +5,7 @@ import {
   CheckCircle2, Hammer, User, Layers, Sparkles, ChevronRight
 } from 'lucide-react';
 import MapComponent from '../components/MapComponent';
-import { apiRequest } from '../api/client';
+import { apiRequest, getMediaUrl } from '../api/client';
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -185,9 +185,9 @@ export default function TicketDetail() {
                 {complaint.media.map((m, idx) => (
                   <div key={idx} className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 h-44 group relative">
                     {m.media_type === 'video' ? (
-                      <video src={m.file_url} controls className="w-full h-full object-cover" />
+                      <video src={getMediaUrl(m.file_url)} controls className="w-full h-full object-cover" />
                     ) : (
-                      <img src={m.file_url} alt="Evidence" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      <img src={getMediaUrl(m.file_url)} alt="Evidence" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                     )}
                     <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 p-1.5 text-[10px] font-mono text-slate-300 truncate">
                       {m.file_name}
