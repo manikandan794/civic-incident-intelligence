@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: urbangrid-platform
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: "pip install -r backend/requirements.txt && cd frontend && npm install && npm run build && cd .."
+    startCommand: "python -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: urbangrid-postgis-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: DEFAULT_DUPLICATE_RADIUS_METERS
+        value: "50.0"
+
+databases:
+  - name: urbangrid-postgis-db
+    databaseName: urbangrid
+    user: urbangrid_admin
+    region: singapore
+    plan: free
+    ipAllowList: []
